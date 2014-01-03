@@ -165,6 +165,7 @@ for _, hash in ipairs(wires.to_register) do
 	end
 	local nodedef = {
 		description = "Test",
+		paramtype = "light",
 		paramtype2 = "facedir",
 		drawtype = "nodebox",
 		groups = {cracky = 1},
