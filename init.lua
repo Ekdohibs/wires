@@ -169,7 +169,7 @@ for _, hash in ipairs(wires.to_register) do
 		drawtype = "nodebox",
 		groups = {cracky = 1},
 		tiles = {"test"},
-		drop = "wires:wire_1",
+		drop = "wires:wire_1 "..#sides.sides,
 		node_box = {
 			type = "fixed",
 			fixed = nodebox
