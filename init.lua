@@ -179,9 +179,11 @@ for _, hash in ipairs(wires.to_register) do
 		on_place = function(itemstack, placer, pointed_thing)
 			if pointed_thing.type ~= "node" then return end
 			local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
+			local onto = minetest.get_node(pointed_thing.under)
+			if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
 			local node = minetest.get_node(pointed_thing.above)
 			local sides
-			if node.name == "air" then
+			if minetest.registered_nodes[node.name].buildable_to then
 				sides = {sides = {}, connects = {}}
 			elseif string.find(node.name, "wires:wire")~=nil then
 				sides = dehash_sides(minetest.registered_nodes[node.name].basename)
@@ -198,6 +200,8 @@ for _, hash in ipairs(wires.to_register) do
 			local param2 = wires.wire_facedirs[hash]
 			minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
 			update_connections(pointed_thing.above)
+			itemstack:take_item()
+			return itemstack
 		end,
 	}
 	if hash ~= 1 then
@@ -206,6 +210,36 @@ for _, hash in ipairs(wires.to_register) do
 	minetest.register_node("wires:wire_"..hash, nodedef)
 end
 
-minetest.register_on_dignode(function(pos)
+minetest.register_on_dignode(function(pos, oldnode, digger)
+	local nfound = 0
+	for side = 0, 5 do
+		local npos = vector.add(pos, side_to_dir((side+3)%6))
+		local nnode = minetest.get_node(npos)
+		if string.find(nnode.name, "wires:wire") ~= nil then
+			local hash = minetest.registered_nodes[nnode.name].basename
+			local sides = dehash_sides(hash)
+			sides = rotate_sides(sides, nnode.param2)
+			local ns = {}
+			for _, i in ipairs(sides.sides) do
+				if i ~= side then
+					ns[#ns+1] = i
+				else
+					nfound = nfound + 1
+				end
+			end
+			if #ns ~= 0 then
+				sides.sides = ns
+				calculate_connects(sides, npos)
+				local hash = hash_sides(sides)
+				nnode.name = "wires:wire_"..wires.wires[hash]
+				nnode.param2 = wires.wire_facedirs[hash]
+			else
+				nnode.name = "air"
+				nnode.param2 = 0
+			end
+			minetest.set_node(npos, nnode)
+		end
+	end
+	minetest.handle_node_drops(pos, {ItemStack("wires:wire_1 "..nfound)}, digger)
 	update_connections(pos)
 end)
