@@ -83,6 +83,30 @@ for i = 0, 5 do
 	nodeboxes_sides[i] = nb
 end
 
+local nodeboxes_bumps = {}
+for i = 0, 5 do
+	local nb = {-2/16, -2/16, -2/16, 2/16, 2/16, 2/16}
+	if i >= 3 then
+		nb[(i%3)+1] = -1/2
+		nb[(i%3)+4] = -1/2 + 3/32
+	else
+		nb[(i%3)+1] = 1/2 - 3/32
+		nb[(i%3)+4] = 1/2
+	end
+	nodeboxes_bumps[i] = nb
+end
+
+local selectionboxes_sides = {}
+for i = 0, 5 do
+	local nb = {-1/2, -1/2, -1/2, 1/2, 1/2, 1/2}
+	if i >= 3 then
+		nb[(i%3)+4] = -1/2 + 3/16
+	else
+		nb[(i%3)+1] = 1/2 - 3/16
+	end
+	selectionboxes_sides[i] = nb
+end
+
 local function copy_table(tbl)
 	local tbl2 = {}
 	for key, val in pairs(tbl) do
@@ -236,8 +260,15 @@ end
 for _, hash in ipairs(wires.to_register) do
 	local sides = dehash_sides(hash)
 	local nodebox = {}
+	local selection_box = {}
 	for _, side in ipairs(sides.sides) do
 		nodebox[#nodebox+1] = nodeboxes_sides[side]
+		local c = 0
+		for _, connect in ipairs(sides.connects) do
+			if connect[1] == side then c = c + 1 end
+		end
+		if c >= 3 then nodebox[#nodebox+1] = nodeboxes_bumps[side] end
+		selection_box[#selection_box+1] = selectionboxes_sides[side]
 	end
 	for _, connect in ipairs(sides.connects) do
 		nodebox[#nodebox+1] = nodeboxes_connects[6*connect[1]+connect[2]]
@@ -254,6 +285,10 @@ for _, hash in ipairs(wires.to_register) do
 		node_box = {
 			type = "fixed",
 			fixed = nodebox
+		},
+		selection_box = {
+			type = "fixed",
+			fixed = selection_box
 		},
 		basename = hash,
 	}
