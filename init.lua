@@ -404,7 +404,7 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 	for side = 0, 5 do
 		local npos = vector.add(pos, side_to_dir((side+3)%6))
 		local nnode = minetest.get_node(npos)
-		if string.find(nnode.name, "wires:wire") ~= nil then
+		if string.find(nnode.name, "wires:wire") ~= nil and minetest.registered_nodes[nnode.name] then
 			if string.find(nnode.name, "on") ~= nil then state = "on" end
 			local hash = minetest.registered_nodes[nnode.name].basename
 			local sides = dehash_sides(hash)
