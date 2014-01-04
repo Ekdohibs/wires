@@ -246,6 +246,7 @@ for _, hash in ipairs(wires.to_register) do
 		paramtype = "light",
 		paramtype2 = "facedir",
 		inventory_image = "wire_inv.png",
+		wield_image = "wire_inv.png",
 		drawtype = "nodebox",
 		drop = "wires:wire_off_1 "..#sides.sides,
 		node_box = {
