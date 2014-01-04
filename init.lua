@@ -1,4 +1,7 @@
+local ATTACHED = false -- Should wires in the air be dropped?
+
 wires = {}
+
 local finite_stacks = (not minetest.setting_get("creative_mode")) or (minetest.get_modpath("unified_inventory") ~= nil)
 
 dofile(minetest.get_modpath("wires").."/wires_tables.lua")
@@ -264,7 +267,7 @@ for _, hash in ipairs(wires.to_register) do
 				if pointed_thing.type ~= "node" then return end
 				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
 				local onto = minetest.get_node(pointed_thing.under)
-				if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
+				if ATTACHED and (onto.name == "air" or string.find(onto.name, "wires:wire")) then return end
 				local node = minetest.get_node(pointed_thing.above)
 				local sides
 				if minetest.registered_nodes[node.name].buildable_to then
@@ -343,7 +346,7 @@ for _, hash in ipairs(wires.to_register) do
 				if pointed_thing.type ~= "node" then return end
 				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
 				local onto = minetest.get_node(pointed_thing.under)
-				if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
+				if ATTACHED and (onto.name == "air" or string.find(onto.name, "wires:wire")) then return end
 				local node = minetest.get_node(pointed_thing.above)
 				local sides
 				if minetest.registered_nodes[node.name].buildable_to then
@@ -405,38 +408,40 @@ end)
 minetest.register_on_dignode(function(pos, oldnode, digger)
 	if not minetest.registered_nodes[oldnode.name] then return end
 	mesecon.on_dignode(pos, oldnode)
-	local nfound = 0
-	for side = 0, 5 do
-		local npos = vector.add(pos, side_to_dir((side+3)%6))
-		local nnode = minetest.get_node(npos)
-		if string.find(nnode.name, "wires:wire") ~= nil and minetest.registered_nodes[nnode.name] then
-			if string.find(nnode.name, "on") ~= nil then state = "on" end
-			local hash = minetest.registered_nodes[nnode.name].basename
-			local sides = dehash_sides(hash)
-			sides = rotate_sides(sides, nnode.param2)
-			local ns = {}
-			for _, i in ipairs(sides.sides) do
-				if i ~= side then
-					ns[#ns+1] = i
-				else
-					nfound = nfound + 1
+	if ATTACHED then
+		local nfound = 0
+		for side = 0, 5 do
+			local npos = vector.add(pos, side_to_dir((side+3)%6))
+			local nnode = minetest.get_node(npos)
+			if string.find(nnode.name, "wires:wire") ~= nil and minetest.registered_nodes[nnode.name] then
+				if string.find(nnode.name, "on") ~= nil then state = "on" end
+				local hash = minetest.registered_nodes[nnode.name].basename
+				local sides = dehash_sides(hash)
+				sides = rotate_sides(sides, nnode.param2)
+				local ns = {}
+				for _, i in ipairs(sides.sides) do
+					if i ~= side then
+						ns[#ns+1] = i
+					else
+						nfound = nfound + 1
+					end
 				end
+				if #ns ~= 0 then
+					sides.sides = ns
+					calculate_connects(sides, npos)
+					local hash = hash_sides(sides)
+					nnode.name = "wires:wire_off_"..wires.wires[hash]
+					nnode.param2 = wires.wire_facedirs[hash]
+				else
+					nnode.name = "air"
+					nnode.param2 = 0
+				end
+				minetest.set_node(npos, nnode)
+				mesecon.on_placenode(npos, nnode)
 			end
-			if #ns ~= 0 then
-				sides.sides = ns
-				calculate_connects(sides, npos)
-				local hash = hash_sides(sides)
-				nnode.name = "wires:wire_off_"..wires.wires[hash]
-				nnode.param2 = wires.wire_facedirs[hash]
-			else
-				nnode.name = "air"
-				nnode.param2 = 0
-			end
-			minetest.set_node(npos, nnode)
-			mesecon.on_placenode(npos, nnode)
 		end
+		minetest.handle_node_drops(pos, {ItemStack("wires:wire_off_1 "..nfound)}, digger)
 	end
-	minetest.handle_node_drops(pos, {ItemStack("wires:wire_off_1 "..nfound)}, digger)
 	update_connections(pos)
 	mesecon:update_autoconnect(pos)
 end)
