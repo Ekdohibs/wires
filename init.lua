@@ -336,7 +336,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_on_off = update_table(base_nodedef, {
-			tiles = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png", "wire_on_and_off.png"},
+			tiles = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png"},
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -346,7 +346,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_off_on = update_table(base_nodedef, {
-			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180", "wire_off.png", "wire_on.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180"},
+			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180", "wire_off.png", "wire_on.png", "wire_on_and_off.png", "wire_on_and_off.png^[transformR180"},
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
