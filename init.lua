@@ -285,6 +285,7 @@ for _, hash in ipairs(wires.to_register) do
 				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
 				update_connections(pointed_thing.above)
 				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
+				mesecon:update_autoconnect(pointed_thing.above)
 				if finite_stacks then
 					itemstack:take_item()
 				end
@@ -299,7 +300,7 @@ for _, hash in ipairs(wires.to_register) do
 		})
 		local nodedef_on_off = update_table(base_nodedef, {
 			tiles = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png", "wire_on_and_off.png"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
 					states = states,
@@ -309,7 +310,7 @@ for _, hash in ipairs(wires.to_register) do
 		})
 		local nodedef_off_on = update_table(base_nodedef, {
 			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180", "wire_off.png", "wire_on.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
 					states = states,
@@ -319,7 +320,7 @@ for _, hash in ipairs(wires.to_register) do
 		})
 		local nodedef_on_on = update_table(base_nodedef, {
 			tiles = {"wire_on.png"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
 					states = states,
@@ -337,7 +338,7 @@ for _, hash in ipairs(wires.to_register) do
 	else
 		local nodedef = update_table(base_nodedef, {
 			tiles = {"wire_off.png"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
 				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
@@ -363,6 +364,7 @@ for _, hash in ipairs(wires.to_register) do
 				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
 				update_connections(pointed_thing.above)
 				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
+				mesecon:update_autoconnect(pointed_thing.above)
 				if finite_stacks then
 					itemstack:take_item()
 				end
@@ -378,7 +380,7 @@ for _, hash in ipairs(wires.to_register) do
 		})
 		local nodedef_on = update_table(base_nodedef, {
 			tiles = {"wire_on.png"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
 					state = "on",
@@ -397,6 +399,7 @@ end
 
 minetest.register_on_placenode(function(pos, node)
 	update_connections(pos)
+	mesecon:update_autoconnect(pos)
 end)
 
 minetest.register_on_dignode(function(pos, oldnode, digger)
@@ -435,4 +438,5 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 	end
 	minetest.handle_node_drops(pos, {ItemStack("wires:wire_off_1 "..nfound)}, digger)
 	update_connections(pos)
+	mesecon:update_autoconnect(pos)
 end)
