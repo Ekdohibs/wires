@@ -117,13 +117,51 @@ local function is_side_in_pos(pos, side)
 	return in_table(sides.sides, side)
 end
 
+local function get_rule(side1, rule)
+	local s = side_to_dir(side1)
+	rule.sx = s.x
+	rule.sy = s.y
+	rule.sz = s.z
+	return rule
+end
+
+local function get_all_rules(node)
+	if mesecon:is_conductor(node.name) then
+		return mesecon:conductor_get_rules(node)
+	elseif mesecon:is_receptor(node.name) then
+		return mesecon:receptor_get_rules(node)
+	elseif mesecon:is_effector(node.name) then
+		return mesecon:effector_get_rules(node)
+	end
+	return nil
+end
+
+local function should_connect(pos, side, r)
+	local other = mesecon:addPosRule(pos, r)
+	if is_side_in_pos(other, side) then return true end
+	local rule = get_rule(side, r)
+	local othernode = minetest.get_node(other)
+	local otherrules = get_all_rules(othernode)
+	if not otherrules then return false end
+	for _, orule in ipairs(mesecon:flattenrules(otherrules)) do
+		if mesecon:cmpPos(mesecon:addPosRule(other, orule), pos) then
+			if orule.sx == nil or
+				(orule.sx == rule.sx and orule.sy == rule.sy
+					and orule.sz == rule.sz) then
+				return true
+			end
+		end
+	end
+end
+
 local function calculate_connects(sides, pos)
 	sides.connects = {}
 	for _, side in ipairs(sides.sides) do
 		for toside = 0, 5 do
 		if side%3 ~= toside%3 then
-			if in_table(sides.sides, toside) or is_side_in_pos(vector.add(pos, side_to_dir(toside)), side)
-					or is_side_in_pos(vector.add(pos, vector.add(side_to_dir(side), side_to_dir(toside))), (toside+3)%6) then
+			--if in_table(sides.sides, toside) or is_side_in_pos(vector.add(pos, side_to_dir(toside)), side)
+			--		or is_side_in_pos(vector.add(pos, vector.add(side_to_dir(side), side_to_dir(toside))), (toside+3)%6) then
+			if in_table(sides.sides, toside) or should_connect(pos, side, side_to_dir(toside)) or should_connect(pos, (toside+3)%6, vector.add(side_to_dir(toside), side_to_dir(side))) then
 				sides.connects[#sides.connects+1] = {side, toside}
 			end
 		end
@@ -134,13 +172,16 @@ end
 local function update_connection(pos)
 	local node = minetest.get_node(pos)
 	if string.find(node.name, "wires:wire") == nil then return end
+	local state = "off"
+	if string.find(node.name, "on") ~= nil then state = "on" end
 	local sides = dehash_sides(minetest.registered_nodes[node.name].basename)
 	sides = rotate_sides(sides, node.param2)
 	calculate_connects(sides, pos)
 	local hash = hash_sides(sides)
-	local nodename = "wires:wire_"..wires.wires[hash]
+	local nodename = "wires:wire_"..state.."_"..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
 	minetest.set_node(pos, {name = nodename, param2 = param2})
+	
 end
 
 local function update_connections(pos)
@@ -155,6 +196,40 @@ local function update_connections(pos)
 	end
 end
 
+local function get_rules(node)
+	local hash = minetest.registered_nodes[node.name].basename
+	local sides = dehash_sides(hash)
+	sides = rotate_sides(sides, node.param2)
+	local rules = {}
+	for _, c in ipairs(sides.connects) do
+		rules[#rules+1] = get_rule(c[1], side_to_dir(c[2]))
+		rules[#rules+1] = get_rule((c[2]+3+c[1])%6, vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
+	end
+	return rules
+end
+
+local function get_rules2(node)
+	print(dump(node))
+	local hash = minetest.registered_nodes[node.name].basename
+	local sides = dehash_sides(hash)
+	sides = rotate_sides(sides, node.param2)
+	local rules = {{}, {}}
+	for _, c in ipairs(sides.connects) do
+		local index = 1
+		if c[1] == sides.sides[2] then index = 2 end
+		rules[index][#rules[index]+1] = get_rule(c[1], side_to_dir(c[2]))
+		rules[index][#rules[index]+1] = get_rule((c[2]+3+c[1])%6, vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
+	end
+	return rules
+end
+
+local function update_table(up, tbl)
+	for key, val in pairs(up) do
+		tbl[key] = val
+	end
+	return tbl
+end
+
 for _, hash in ipairs(wires.to_register) do
 	local sides = dehash_sides(hash)
 	local nodebox = {}
@@ -164,61 +239,171 @@ for _, hash in ipairs(wires.to_register) do
 	for _, connect in ipairs(sides.connects) do
 		nodebox[#nodebox+1] = nodeboxes_connects[6*connect[1]+connect[2]]
 	end
-	local nodedef = {
+	local base_nodedef = {
 		description = "Test",
 		paramtype = "light",
 		paramtype2 = "facedir",
 		drawtype = "nodebox",
-		groups = {cracky = 1},
-		tiles = {"test"},
-		drop = "wires:wire_1 "..#sides.sides,
+		drop = "wires:wire_off_1 "..#sides.sides,
 		node_box = {
 			type = "fixed",
 			fixed = nodebox
 		},
 		basename = hash,
-		on_place = function(itemstack, placer, pointed_thing)
-			if pointed_thing.type ~= "node" then return end
-			local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
-			local onto = minetest.get_node(pointed_thing.under)
-			if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
-			local node = minetest.get_node(pointed_thing.above)
-			local sides
-			if minetest.registered_nodes[node.name].buildable_to then
-				sides = {sides = {}, connects = {}}
-			elseif string.find(node.name, "wires:wire")~=nil then
-				sides = dehash_sides(minetest.registered_nodes[node.name].basename)
-				sides = rotate_sides(sides, node.param2)
-			else
-				return
-			end
-			local side = dir_to_side(dir)
-			if in_table(sides.sides, side) then return end
-			sides.sides[#sides.sides+1] = side
-			calculate_connects(sides, pointed_thing.above)
-			local hash = hash_sides(sides)
-			local nodename = "wires:wire_"..wires.wires[hash]
-			local param2 = wires.wire_facedirs[hash]
-			minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
-			update_connections(pointed_thing.above)
-			if finite_stacks then
-				itemstack:take_item()
-			end
-			return itemstack
-		end,
 	}
-	if hash ~= 1 then
-		nodedef.groups.not_in_creative_inventory = 1
+	if #sides.sides == 2 and sides.sides[1]%3 == sides.sides[2]%3 then -- Two part, special
+		local states = {"wires:wire_off_"..hash, "wires:wire_off_on_"..hash, "wires:wire_on_off_"..hash, "wires:wire_on_on_"..hash}
+		local nodedef = update_table(base_nodedef, {
+			tiles = {"test"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			on_place = function(itemstack, placer, pointed_thing)
+				if pointed_thing.type ~= "node" then return end
+				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
+				local onto = minetest.get_node(pointed_thing.under)
+				if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
+				local node = minetest.get_node(pointed_thing.above)
+				local sides
+				if minetest.registered_nodes[node.name].buildable_to then
+					sides = {sides = {}, connects = {}}
+				elseif string.find(node.name, "wires:wire")~=nil then
+					sides = dehash_sides(minetest.registered_nodes[node.name].basename)
+					sides = rotate_sides(sides, node.param2)
+				else
+					return
+				end
+				local side = dir_to_side(dir)
+				if in_table(sides.sides, side) then return end
+				sides.sides[#sides.sides+1] = side
+				calculate_connects(sides, pointed_thing.above)
+				local hash = hash_sides(sides)
+				local nodename = "wires:wire_off_"..wires.wires[hash]
+				local param2 = wires.wire_facedirs[hash]
+				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
+				update_connections(pointed_thing.above)
+				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
+				if finite_stacks then
+					itemstack:take_item()
+				end
+				return itemstack
+			end,
+			mesecons = {
+				conductor = {
+					states = states,
+					rules = get_rules2,
+				}
+			},
+		})
+		local nodedef_on_off = update_table(base_nodedef, {
+			tiles = {"test_on_off"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			mesecons = {
+				conductor = {
+					states = states,
+					rules = get_rules2,
+				}
+			},
+		})
+		local nodedef_off_on = update_table(base_nodedef, {
+			tiles = {"test_off_on"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			mesecons = {
+				conductor = {
+					states = states,
+					rules = get_rules2,
+				}
+			},
+		})
+		local nodedef_on_on = update_table(base_nodedef, {
+			tiles = {"test_on"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			mesecons = {
+				conductor = {
+					states = states,
+					rules = get_rules2,
+				}
+			},
+		})
+		if hash == 1 then
+			nodedef.groups.not_in_creative_inventory = nil
+		end
+		minetest.register_node("wires:wire_off_"..hash, nodedef)
+		minetest.register_node("wires:wire_off_on_"..hash, nodedef_off_on)
+		minetest.register_node("wires:wire_on_off_"..hash, nodedef_on_off)
+		minetest.register_node("wires:wire_on_on_"..hash, nodedef_on_on)
+	else
+		local nodedef = update_table(base_nodedef, {
+			tiles = {"test"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			on_place = function(itemstack, placer, pointed_thing)
+				if pointed_thing.type ~= "node" then return end
+				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
+				local onto = minetest.get_node(pointed_thing.under)
+				if onto.name == "air" or string.find(onto.name, "wires:wire") then return end
+				local node = minetest.get_node(pointed_thing.above)
+				local sides
+				if minetest.registered_nodes[node.name].buildable_to then
+					sides = {sides = {}, connects = {}}
+				elseif string.find(node.name, "wires:wire")~=nil then
+					sides = dehash_sides(minetest.registered_nodes[node.name].basename)
+					sides = rotate_sides(sides, node.param2)
+				else
+					return
+				end
+				local side = dir_to_side(dir)
+				if in_table(sides.sides, side) then return end
+				sides.sides[#sides.sides+1] = side
+				calculate_connects(sides, pointed_thing.above)
+				local hash = hash_sides(sides)
+				local nodename = "wires:wire_off_"..wires.wires[hash]
+				local param2 = wires.wire_facedirs[hash]
+				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
+				update_connections(pointed_thing.above)
+				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
+				if finite_stacks then
+					itemstack:take_item()
+				end
+				return itemstack
+			end,
+			mesecons = {
+				conductor = {
+					state = "off",
+					onstate = "wires:wire_on_"..hash,
+					rules = get_rules,
+				}
+			},
+		})
+		local nodedef_on = update_table(base_nodedef, {
+			tiles = {"test_on"},
+			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			mesecons = {
+				conductor = {
+					state = "on",
+					offstate = "wires:wire_off_"..hash,
+					rules = get_rules,
+				}
+			},
+		})
+		if hash == 1 then
+			nodedef.groups.not_in_creative_inventory = nil
+		end
+		minetest.register_node("wires:wire_off_"..hash, nodedef)
+		minetest.register_node("wires:wire_on_"..hash, nodedef_on)
 	end
-	minetest.register_node("wires:wire_"..hash, nodedef)
 end
 
+minetest.register_on_placenode(function(pos, node)
+	update_connections(pos)
+end)
+
 minetest.register_on_dignode(function(pos, oldnode, digger)
+	mesecon.on_dignode(pos, oldnode)
 	local nfound = 0
 	for side = 0, 5 do
 		local npos = vector.add(pos, side_to_dir((side+3)%6))
 		local nnode = minetest.get_node(npos)
 		if string.find(nnode.name, "wires:wire") ~= nil then
+			local state = "off"
+			if string.find(nnode.name, "on") ~= nil then state = "on" end
 			local hash = minetest.registered_nodes[nnode.name].basename
 			local sides = dehash_sides(hash)
 			sides = rotate_sides(sides, nnode.param2)
@@ -234,15 +419,16 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 				sides.sides = ns
 				calculate_connects(sides, npos)
 				local hash = hash_sides(sides)
-				nnode.name = "wires:wire_"..wires.wires[hash]
+				nnode.name = "wires:wire_"..state.."_"..wires.wires[hash]
 				nnode.param2 = wires.wire_facedirs[hash]
 			else
 				nnode.name = "air"
 				nnode.param2 = 0
 			end
 			minetest.set_node(npos, nnode)
+			mesecon.on_placenode(npos, nnode)
 		end
 	end
-	minetest.handle_node_drops(pos, {ItemStack("wires:wire_1 "..nfound)}, digger)
+	minetest.handle_node_drops(pos, {ItemStack("wires:wire_off_1 "..nfound)}, digger)
 	update_connections(pos)
 end)
