@@ -2,7 +2,7 @@ local ATTACHED = false -- Should wires in the air be dropped?
 
 wires = {}
 
-local finite_stacks = (not minetest.setting_get("creative_mode")) or (minetest.get_modpath("unified_inventory") ~= nil)
+local finite_stacks = (not minetest.setting_getbool("creative_mode")) or (minetest.get_modpath("unified_inventory") ~= nil)
 
 dofile(minetest.get_modpath("wires").."/wires_tables.lua")
 
