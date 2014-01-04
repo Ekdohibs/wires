@@ -249,6 +249,7 @@ for _, hash in ipairs(wires.to_register) do
 		inventory_image = "wire_inv.png",
 		wield_image = "wire_inv.png",
 		drawtype = "nodebox",
+		walkable = false,
 		drop = "wires:wire_off_1 "..#sides.sides,
 		node_box = {
 			type = "fixed",
@@ -260,7 +261,7 @@ for _, hash in ipairs(wires.to_register) do
 		local states = {"wires:wire_off_"..hash, "wires:wire_off_on_"..hash, "wires:wire_on_off_"..hash, "wires:wire_on_on_"..hash}
 		local nodedef = update_table(base_nodedef, {
 			tiles = {"wire_off.png"},
-			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
+			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
 				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
