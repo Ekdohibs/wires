@@ -1,4 +1,5 @@
 wires = {}
+local finite_stacks = (not minetest.setting_get("creative_mode")) or (minetest.get_modpath("unified_inventory") ~= nil)
 
 dofile(minetest.get_modpath("wires").."/wires_tables.lua")
 
@@ -200,7 +201,9 @@ for _, hash in ipairs(wires.to_register) do
 			local param2 = wires.wire_facedirs[hash]
 			minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
 			update_connections(pointed_thing.above)
-			itemstack:take_item()
+			if finite_stacks then
+				itemstack:take_item()
+			end
 			return itemstack
 		end,
 	}
