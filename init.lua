@@ -245,6 +245,7 @@ for _, hash in ipairs(wires.to_register) do
 		description = "Test",
 		paramtype = "light",
 		paramtype2 = "facedir",
+		inventory_image = "wire_inv.png",
 		drawtype = "nodebox",
 		drop = "wires:wire_off_1 "..#sides.sides,
 		node_box = {
@@ -256,7 +257,7 @@ for _, hash in ipairs(wires.to_register) do
 	if #sides.sides == 2 and sides.sides[1]%3 == sides.sides[2]%3 then -- Two part, special
 		local states = {"wires:wire_off_"..hash, "wires:wire_off_on_"..hash, "wires:wire_on_off_"..hash, "wires:wire_on_on_"..hash}
 		local nodedef = update_table(base_nodedef, {
-			tiles = {"test"},
+			tiles = {"wire_off.png"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
@@ -296,7 +297,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_on_off = update_table(base_nodedef, {
-			tiles = {"test_on_off"},
+			tiles = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png", "wire_on_and_off.png"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -306,7 +307,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_off_on = update_table(base_nodedef, {
-			tiles = {"test_off_on"},
+			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180", "wire_off.png", "wire_on.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -316,7 +317,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_on_on = update_table(base_nodedef, {
-			tiles = {"test_on"},
+			tiles = {"wire_on.png"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -334,7 +335,7 @@ for _, hash in ipairs(wires.to_register) do
 		minetest.register_node("wires:wire_on_on_"..hash, nodedef_on_on)
 	else
 		local nodedef = update_table(base_nodedef, {
-			tiles = {"test"},
+			tiles = {"wire_off.png"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
@@ -375,7 +376,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_on = update_table(base_nodedef, {
-			tiles = {"test_on"},
+			tiles = {"wire_on.png"},
 			groups = {cracky = 1, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
