@@ -178,13 +178,11 @@ end
 local function update_connection(pos)
 	local node = minetest.get_node(pos)
 	if string.find(node.name, "wires:wire") == nil or minetest.registered_nodes[node.name] == nil then return end
-	local h = minetest.registered_nodes[node.name].basename
-	local bname = string.sub(node.name, 1, -1-string.len(tostring(h)))
-	local sides = dehash_sides(h)
+	local sides = dehash_sides(minetest.registered_nodes[node.name].basename)
 	sides = rotate_sides(sides, node.param2)
 	calculate_connects(sides, pos)
 	local hash = hash_sides(sides)
-	local nodename = bname..wires.wires[hash]
+	local nodename = "wires:wire_off_"..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
 	minetest.set_node(pos, {name = nodename, param2 = param2})
 	mesecon.on_placenode(pos, {name = nodename, param2 = param2})
