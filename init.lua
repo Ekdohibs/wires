@@ -117,8 +117,11 @@ local function is_side_in_pos(pos, side)
 	return in_table(sides.sides, side)
 end
 
-local function get_rule(side1, rule)
-	local s = side_to_dir(side1)
+local function minmax(a, b)
+	return {x = math.max(a, b)+2, y = math.min(a, b)+2, z = 0}
+end
+
+local function get_rule(s, rule)
 	rule.sx = s.x
 	rule.sy = s.y
 	rule.sz = s.z
@@ -136,10 +139,10 @@ local function get_all_rules(node)
 	return nil
 end
 
-local function should_connect(pos, side, r)
+local function should_connect(pos, s, side, r)
 	local other = mesecon:addPosRule(pos, r)
 	if is_side_in_pos(other, side) then return true end
-	local rule = get_rule(side, r)
+	local rule = get_rule(s, r)
 	local othernode = minetest.get_node(other)
 	local otherrules = get_all_rules(othernode)
 	if not otherrules then return false end
@@ -161,7 +164,7 @@ local function calculate_connects(sides, pos)
 		if side%3 ~= toside%3 then
 			--if in_table(sides.sides, toside) or is_side_in_pos(vector.add(pos, side_to_dir(toside)), side)
 			--		or is_side_in_pos(vector.add(pos, vector.add(side_to_dir(side), side_to_dir(toside))), (toside+3)%6) then
-			if in_table(sides.sides, toside) or should_connect(pos, side, side_to_dir(toside)) or should_connect(pos, (toside+3)%6, vector.add(side_to_dir(toside), side_to_dir(side))) then
+			if in_table(sides.sides, toside) or should_connect(pos, side_to_dir(side), side, side_to_dir(toside)) or should_connect(pos, minmax(side, (toside+3)%6), (toside+3)%6, vector.add(side_to_dir(toside), side_to_dir(side))) then
 				sides.connects[#sides.connects+1] = {side, toside}
 			end
 		end
@@ -172,16 +175,16 @@ end
 local function update_connection(pos)
 	local node = minetest.get_node(pos)
 	if string.find(node.name, "wires:wire") == nil then return end
-	local state = "off"
-	if string.find(node.name, "on") ~= nil then state = "on" end
-	local sides = dehash_sides(minetest.registered_nodes[node.name].basename)
+	local h = minetest.registered_nodes[node.name].basename
+	local bname = string.sub(node.name, 1, -1-string.len(tostring(h)))
+	local sides = dehash_sides(h)
 	sides = rotate_sides(sides, node.param2)
 	calculate_connects(sides, pos)
 	local hash = hash_sides(sides)
-	local nodename = "wires:wire_"..state.."_"..wires.wires[hash]
+	local nodename = bname..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
 	minetest.set_node(pos, {name = nodename, param2 = param2})
-	
+	mesecon.on_placenode(pos, {name = nodename, param2 = param2})
 end
 
 local function update_connections(pos)
@@ -202,14 +205,13 @@ local function get_rules(node)
 	sides = rotate_sides(sides, node.param2)
 	local rules = {}
 	for _, c in ipairs(sides.connects) do
-		rules[#rules+1] = get_rule(c[1], side_to_dir(c[2]))
-		rules[#rules+1] = get_rule((c[2]+3+c[1])%6, vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
+		rules[#rules+1] = get_rule(side_to_dir(c[1]), side_to_dir(c[2]))
+		rules[#rules+1] = get_rule(minmax((c[2]+3)%6, c[1]), vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
 	end
 	return rules
 end
 
 local function get_rules2(node)
-	print(dump(node))
 	local hash = minetest.registered_nodes[node.name].basename
 	local sides = dehash_sides(hash)
 	sides = rotate_sides(sides, node.param2)
@@ -217,8 +219,8 @@ local function get_rules2(node)
 	for _, c in ipairs(sides.connects) do
 		local index = 1
 		if c[1] == sides.sides[2] then index = 2 end
-		rules[index][#rules[index]+1] = get_rule(c[1], side_to_dir(c[2]))
-		rules[index][#rules[index]+1] = get_rule((c[2]+3+c[1])%6, vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
+		rules[index][#rules[index]+1] = get_rule(side_to_dir(c[1]), side_to_dir(c[2]))
+		rules[index][#rules[index]+1] = get_rule(minmax((c[2]+3)%6, c[1]), vector.add(side_to_dir(c[2]), side_to_dir(c[1])))
 	end
 	return rules
 end
@@ -396,13 +398,13 @@ minetest.register_on_placenode(function(pos, node)
 end)
 
 minetest.register_on_dignode(function(pos, oldnode, digger)
+	if not minetest.registered_nodes[oldnode.name] then return end
 	mesecon.on_dignode(pos, oldnode)
 	local nfound = 0
 	for side = 0, 5 do
 		local npos = vector.add(pos, side_to_dir((side+3)%6))
 		local nnode = minetest.get_node(npos)
 		if string.find(nnode.name, "wires:wire") ~= nil then
-			local state = "off"
 			if string.find(nnode.name, "on") ~= nil then state = "on" end
 			local hash = minetest.registered_nodes[nnode.name].basename
 			local sides = dehash_sides(hash)
@@ -419,7 +421,7 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 				sides.sides = ns
 				calculate_connects(sides, npos)
 				local hash = hash_sides(sides)
-				nnode.name = "wires:wire_"..state.."_"..wires.wires[hash]
+				nnode.name = "wires:wire_off_"..wires.wires[hash]
 				nnode.param2 = wires.wire_facedirs[hash]
 			else
 				nnode.name = "air"
