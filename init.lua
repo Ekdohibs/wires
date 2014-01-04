@@ -174,7 +174,7 @@ end
 
 local function update_connection(pos)
 	local node = minetest.get_node(pos)
-	if string.find(node.name, "wires:wire") == nil then return end
+	if string.find(node.name, "wires:wire") == nil or minetest.registered_nodes[node.name] == nil then return end
 	local h = minetest.registered_nodes[node.name].basename
 	local bname = string.sub(node.name, 1, -1-string.len(tostring(h)))
 	local sides = dehash_sides(h)
