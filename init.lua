@@ -267,13 +267,17 @@ for _, hash in ipairs(wires.to_register) do
 	local sides = dehash_sides(hash)
 	local nodebox = {}
 	local selection_box = {}
+	local texture_bumps = {}
 	for _, side in ipairs(sides.sides) do
 		nodebox[#nodebox+1] = nodeboxes_sides[side]
 		local c = 0
 		for _, connect in ipairs(sides.connects) do
 			if connect[1] == side then c = c + 1 end
 		end
-		if c >= 3 then nodebox[#nodebox+1] = nodeboxes_bumps[side] end
+		if c >= 3 then
+			nodebox[#nodebox+1] = nodeboxes_bumps[side]
+			texture_bumps[#texture_bumps+1] = side
+		end
 		selection_box[#selection_box+1] = selectionboxes_sides[side]
 	end
 	for _, connect in ipairs(sides.connects) do
@@ -298,10 +302,15 @@ for _, hash in ipairs(wires.to_register) do
 		},
 		basename = hash,
 	}
+	local vts = {4, 2, 6, 3, 1, 5}
 	if #sides.sides == 2 and sides.sides[1]%3 == sides.sides[2]%3 then -- Two part, special
 		local states = {"wires:wire_off_"..hash, "wires:wire_off_on_"..hash, "wires:wire_on_off_"..hash, "wires:wire_on_on_"..hash}
+		local tiles = {"wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png"}
+		for _, side in ipairs(texture_bumps) do
+			tiles[vts[side+1]] = "wire_off_ctr.png"
+		end
 		local nodedef = update_table(base_nodedef, {
-			tiles = {"wire_off.png"},
+			tiles = tiles,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
@@ -341,8 +350,16 @@ for _, hash in ipairs(wires.to_register) do
 				}
 			},
 		})
+		local tiles_on_off = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png"}
+		for _, side in ipairs(texture_bumps) do
+			if vts[side+1] == 3 then
+				tiles_on_off[3] = "wire_on_ctr.png"
+			elseif vts[side+1] == 4 then
+				tiles_on_off[4] = "wire_off_ctr.png"
+			end
+		end
 		local nodedef_on_off = update_table(base_nodedef, {
-			tiles = {"wire_on_and_off.png", "wire_on_and_off.png", "wire_on.png", "wire_off.png", "wire_on_and_off.png^[transformR180", "wire_on_and_off.png"},
+			tiles = tiles_on_off,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -351,8 +368,16 @@ for _, hash in ipairs(wires.to_register) do
 				}
 			},
 		})
+		local tiles_off_on = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png", "wire_off.png", "wire_on.png", "wire_on_and_off.png", "wire_on_and_off.png^[transformR180"}
+		for _, side in ipairs(texture_bumps) do
+			if vts[side+1] == 3 then
+				tiles_off_on[3] = "wire_off_ctr.png"
+			elseif vts[side+1] == 4 then
+				tiles_off_on[4] = "wire_on_ctr.png"
+			end
+		end
 		local nodedef_off_on = update_table(base_nodedef, {
-			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png", "wire_off.png", "wire_on.png", "wire_on_and_off.png", "wire_on_and_off.png^[transformR180"},
+			tiles = tiles_off_on,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -361,8 +386,12 @@ for _, hash in ipairs(wires.to_register) do
 				}
 			},
 		})
+		local tiles_on = {"wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png"}
+		for _, side in ipairs(texture_bumps) do
+			tiles_on[vts[side+1]] = "wire_on_ctr.png"
+		end
 		local nodedef_on_on = update_table(base_nodedef, {
-			tiles = {"wire_on.png"},
+			tiles = tiles_on,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -379,8 +408,12 @@ for _, hash in ipairs(wires.to_register) do
 		minetest.register_node("wires:wire_on_off_"..hash, nodedef_on_off)
 		minetest.register_node("wires:wire_on_on_"..hash, nodedef_on_on)
 	else
+		local tiles = {"wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png", "wire_off.png"}
+		for _, side in ipairs(texture_bumps) do
+			tiles[vts[side+1]] = "wire_off_ctr.png"
+		end
 		local nodedef = update_table(base_nodedef, {
-			tiles = {"wire_off.png"},
+			tiles = tiles,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			on_place = function(itemstack, placer, pointed_thing)
 				if pointed_thing.type ~= "node" then return end
@@ -421,8 +454,12 @@ for _, hash in ipairs(wires.to_register) do
 				}
 			},
 		})
+		local tiles_on = {"wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png", "wire_on.png"}
+		for _, side in ipairs(texture_bumps) do
+			tiles_on[vts[side+1]] = "wire_on_ctr.png"
+		end
 		local nodedef_on = update_table(base_nodedef, {
-			tiles = {"wire_on.png"},
+			tiles = tiles_on,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -488,6 +525,7 @@ end)
 
 minetest.register_tool("wires:cutter", {
 	description = "Wire cutter",
+	inventory_image = "cutters.png",
 	on_use = function(itemstack, user, pointed_thing)
 		if pointed_thing.type ~= "node" then return end
 		local above = pointed_thing.above
