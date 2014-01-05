@@ -204,6 +204,17 @@ local function calculate_connects(sides, pos)
 	end
 end
 
+local function swap_node(pos, oldnode, newnode)
+	local meta = minetest.get_meta(pos)
+	local meta0 = meta:to_table()
+	minetest.set_node(pos, {name = "air"})
+	mesecon.on_dignode(pos, oldnode)
+	minetest.set_node(pos, newnode)
+	meta = minetest.get_meta(pos)
+	meta:from_table(meta0)
+	mesecon.on_placenode(pos, newnode)
+end
+
 local function update_connection(pos)
 	local node = minetest.get_node(pos)
 	if string.find(node.name, "wires:wire") == nil or minetest.registered_nodes[node.name] == nil then return end
@@ -213,9 +224,7 @@ local function update_connection(pos)
 	local hash = hash_sides(sides)
 	local nodename = "wires:wire_off_"..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
-	mesecon.on_dignode(pos, node)
-	minetest.swap_node(pos, {name = nodename, param2 = param2})
-	mesecon.on_placenode(pos, {name = nodename, param2 = param2})
+	swap_node(pos, node, {name = nodename, param2 = param2})
 end
 
 local function update_connections(pos)
@@ -294,9 +303,8 @@ local function place_wire(itemstack, placer, pointed_thing)
 	local hash = hash_sides(sides)
 	local nodename = "wires:wire_off_"..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
-	minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
+	swap_node(pointed_thing.above, node, {name = nodename, param2 = param2})
 	update_connections(pointed_thing.above)
-	mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
 	mesecon:update_autoconnect(pointed_thing.above)
 	if finite_stacks then
 		itemstack:take_item()
