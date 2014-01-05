@@ -135,13 +135,16 @@ local function in_table(tbl, n)
 	return false
 end
 
-local function is_side_in_pos(pos, side)
+local function is_side_in_pos(pos, side, otherside)
 	local node = minetest.get_node(pos)
-	if string.find(node.name, "wires:wire")==nil then return false end
+	local meta = minetest.get_meta(pos)
+	if string.find(node.name, "wires:wire")==nil then return nil end
+	if meta:get_int("noconnect"..side..otherside)==1 then return false end
 	local hash = minetest.registered_nodes[node.name].basename
 	local sides = dehash_sides(hash)
 	sides = rotate_sides(sides, node.param2)
-	return in_table(sides.sides, side)
+	local it = in_table(sides.sides, side)
+	if it then return true else return nil end
 end
 
 local function minmax(a, b)
@@ -166,9 +169,10 @@ local function get_all_rules(node)
 	return nil
 end
 
-local function should_connect(pos, s, side, r)
+local function should_connect(pos, s, side, fromside, r)
 	local other = mesecon:addPosRule(pos, r)
-	if is_side_in_pos(other, side) then return true end
+	local s_in_pos = is_side_in_pos(other, side, fromside)
+	if s_in_pos ~= nil then return s_in_pos end
 	local rule = get_rule(s, r)
 	local othernode = minetest.get_node(other)
 	local otherrules = get_all_rules(othernode)
@@ -185,13 +189,14 @@ local function should_connect(pos, s, side, r)
 end
 
 local function calculate_connects(sides, pos)
+	local meta = minetest.get_meta(pos)
 	sides.connects = {}
 	for _, side in ipairs(sides.sides) do
 		for toside = 0, 5 do
 		if side%3 ~= toside%3 then
 			--if in_table(sides.sides, toside) or is_side_in_pos(vector.add(pos, side_to_dir(toside)), side)
 			--		or is_side_in_pos(vector.add(pos, vector.add(side_to_dir(side), side_to_dir(toside))), (toside+3)%6) then
-			if in_table(sides.sides, toside) or should_connect(pos, side_to_dir(side), side, side_to_dir(toside)) or should_connect(pos, minmax(side, (toside+3)%6), (toside+3)%6, vector.add(side_to_dir(toside), side_to_dir(side))) then
+			if in_table(sides.sides, toside) or (meta:get_int("noconnect"..side..toside)~=1 and (should_connect(pos, side_to_dir(side), side, (toside+3)%6, side_to_dir(toside)) or should_connect(pos, minmax(side, (toside+3)%6), (toside+3)%6, (side+3)%6, vector.add(side_to_dir(toside), side_to_dir(side))))) then
 				sides.connects[#sides.connects+1] = {side, toside}
 			end
 		end
@@ -208,7 +213,8 @@ local function update_connection(pos)
 	local hash = hash_sides(sides)
 	local nodename = "wires:wire_off_"..wires.wires[hash]
 	local param2 = wires.wire_facedirs[hash]
-	minetest.set_node(pos, {name = nodename, param2 = param2})
+	mesecon.on_dignode(pos, node)
+	minetest.swap_node(pos, {name = nodename, param2 = param2})
 	mesecon.on_placenode(pos, {name = nodename, param2 = param2})
 end
 
@@ -319,7 +325,7 @@ for _, hash in ipairs(wires.to_register) do
 				local hash = hash_sides(sides)
 				local nodename = "wires:wire_off_"..wires.wires[hash]
 				local param2 = wires.wire_facedirs[hash]
-				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
+				minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
 				update_connections(pointed_thing.above)
 				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
 				mesecon:update_autoconnect(pointed_thing.above)
@@ -346,7 +352,7 @@ for _, hash in ipairs(wires.to_register) do
 			},
 		})
 		local nodedef_off_on = update_table(base_nodedef, {
-			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png^[transformR180", "wire_off.png", "wire_on.png", "wire_on_and_off.png", "wire_on_and_off.png^[transformR180"},
+			tiles = {"wire_on_and_off.png^[transformR180", "wire_on_and_off.png", "wire_off.png", "wire_on.png", "wire_on_and_off.png", "wire_on_and_off.png^[transformR180"},
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
 			mesecons = {
 				conductor = {
@@ -398,7 +404,7 @@ for _, hash in ipairs(wires.to_register) do
 				local hash = hash_sides(sides)
 				local nodename = "wires:wire_off_"..wires.wires[hash]
 				local param2 = wires.wire_facedirs[hash]
-				minetest.set_node(pointed_thing.above, {name = nodename, param2 = param2})
+				minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
 				update_connections(pointed_thing.above)
 				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
 				mesecon:update_autoconnect(pointed_thing.above)
@@ -470,7 +476,7 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 					nnode.name = "air"
 					nnode.param2 = 0
 				end
-				minetest.set_node(npos, nnode)
+				minetest.swap_node(npos, nnode)
 				mesecon.on_placenode(npos, nnode)
 			end
 		end
@@ -479,3 +485,85 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 	update_connections(pos)
 	mesecon:update_autoconnect(pos)
 end)
+
+minetest.register_tool("wires:cutter", {
+	description = "Wire cutter",
+	on_use = function(itemstack, user, pointed_thing)
+		if pointed_thing.type ~= "node" then return end
+		local above = pointed_thing.above
+		local under = pointed_thing.under
+		local node = minetest.get_node(under)
+		if string.find(node.name, "wires:wire") == nil then return end
+		if not minetest.registered_nodes[node.name] then return end
+		local dir = user:get_look_dir()
+		local ppos = user:getpos()
+		ppos.y = ppos.y + 1.5 -- Camera
+		ppos = vector.add(ppos, vector.subtract(above, under)) -- WTF? It works far better with that, even if I have absolutely no idea why
+		local s = dir_to_side(vector.subtract(under, above))
+		local s2
+		if s%3 == 0 then -- X coordinate
+			local xint = (above.x+under.x)/2
+			local t = (xint-ppos.x)/dir.x
+			local yint = ppos.y+dir.y*t - under.y
+			local zint = ppos.z+dir.z*t - under.z
+			print(yint)
+			print(zint)
+			if math.abs(yint)>math.abs(zint) then
+				if yint < 0 then
+					s2 = 4
+				else
+					s2 = 1
+				end
+			else
+				if zint < 0 then
+					s2 = 5
+				else
+					s2 = 2
+				end
+			end
+		elseif s%3 == 1 then -- Y
+			local yint = (above.y+under.y)/2
+			local t = (yint-ppos.y)/dir.y
+			local xint = ppos.x+dir.x*t - under.x
+			local zint = ppos.z+dir.z*t - under.z
+			print(xint)
+			print(zint)
+			if math.abs(xint)>math.abs(zint) then
+				if xint < 0 then
+					s2 = 3
+				else
+					s2 = 0
+				end
+			else
+				if zint < 0 then
+					s2 = 5
+				else
+					s2 = 2
+				end
+			end
+		else -- Z
+			local zint = (above.z+under.z)/2
+			local t = (zint-ppos.z)/dir.z
+			local yint = ppos.y+dir.y*t - under.y
+			local xint = ppos.x+dir.x*t - under.x
+			print(yint)
+			print(xint)
+			if math.abs(yint)>math.abs(xint) then
+				if yint < 0 then
+					s2 = 4
+				else
+					s2 = 1
+				end
+			else
+				if xint < 0 then
+					s2 = 3
+				else
+					s2 = 0
+				end
+			end
+		end
+		local meta = minetest.get_meta(under)
+		meta:set_int("noconnect"..s..s2, 1)
+		update_connections(under)
+	end,
+})
