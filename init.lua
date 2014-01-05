@@ -88,9 +88,9 @@ for i = 0, 5 do
 	local nb = {-2/16, -2/16, -2/16, 2/16, 2/16, 2/16}
 	if i >= 3 then
 		nb[(i%3)+1] = -1/2
-		nb[(i%3)+4] = -1/2 + 3/32
+		nb[(i%3)+4] = -1/2 + 4/32
 	else
-		nb[(i%3)+1] = 1/2 - 3/32
+		nb[(i%3)+1] = 1/2 - 4/32
 		nb[(i%3)+4] = 1/2
 	end
 	nodeboxes_bumps[i] = nb
@@ -263,6 +263,47 @@ local function update_table(up, tbl)
 	return tbl
 end
 
+local function place_wire(itemstack, placer, pointed_thing)
+	if pointed_thing.type ~= "node" then return end
+	local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
+	local onto = minetest.get_node(pointed_thing.under)
+	if string.find(onto.name, "wires:wire") ~= nil and minetest.registered_nodes[onto.name] then
+		local h = minetest.registered_nodes[onto.name].basename
+		local sds = rotate_sides(dehash_sides(h), onto.param2).sides
+		if #sds == 1 and sds[1]%3 ~= dir_to_side(dir)%3 then
+			dir = side_to_dir(sds[1])
+			pointed_thing.under = vector.add(dir, pointed_thing.above)
+			onto = minetest.get_node(pointed_thing.under)
+		end
+	end
+	if ATTACHED and (onto.name == "air" or string.find(onto.name, "wires:wire")) then return end
+	local node = minetest.get_node(pointed_thing.above)
+	local sides
+	if minetest.registered_nodes[node.name].buildable_to then
+		sides = {sides = {}, connects = {}}
+	elseif string.find(node.name, "wires:wire")~=nil then
+		sides = dehash_sides(minetest.registered_nodes[node.name].basename)
+		sides = rotate_sides(sides, node.param2)
+	else
+		return
+	end
+	local side = dir_to_side(dir)
+	if in_table(sides.sides, side) then return end
+	sides.sides[#sides.sides+1] = side
+	calculate_connects(sides, pointed_thing.above)
+	local hash = hash_sides(sides)
+	local nodename = "wires:wire_off_"..wires.wires[hash]
+	local param2 = wires.wire_facedirs[hash]
+	minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
+	update_connections(pointed_thing.above)
+	mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
+	mesecon:update_autoconnect(pointed_thing.above)
+	if finite_stacks then
+		itemstack:take_item()
+	end
+	return itemstack
+end
+
 for _, hash in ipairs(wires.to_register) do
 	local sides = dehash_sides(hash)
 	local nodebox = {}
@@ -312,37 +353,7 @@ for _, hash in ipairs(wires.to_register) do
 		local nodedef = update_table(base_nodedef, {
 			tiles = tiles,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
-			on_place = function(itemstack, placer, pointed_thing)
-				if pointed_thing.type ~= "node" then return end
-				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
-				local onto = minetest.get_node(pointed_thing.under)
-				if ATTACHED and (onto.name == "air" or string.find(onto.name, "wires:wire")) then return end
-				local node = minetest.get_node(pointed_thing.above)
-				local sides
-				if minetest.registered_nodes[node.name].buildable_to then
-					sides = {sides = {}, connects = {}}
-				elseif string.find(node.name, "wires:wire")~=nil then
-					sides = dehash_sides(minetest.registered_nodes[node.name].basename)
-					sides = rotate_sides(sides, node.param2)
-				else
-					return
-				end
-				local side = dir_to_side(dir)
-				if in_table(sides.sides, side) then return end
-				sides.sides[#sides.sides+1] = side
-				calculate_connects(sides, pointed_thing.above)
-				local hash = hash_sides(sides)
-				local nodename = "wires:wire_off_"..wires.wires[hash]
-				local param2 = wires.wire_facedirs[hash]
-				minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
-				update_connections(pointed_thing.above)
-				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
-				mesecon:update_autoconnect(pointed_thing.above)
-				if finite_stacks then
-					itemstack:take_item()
-				end
-				return itemstack
-			end,
+			on_place = place_wire,
 			mesecons = {
 				conductor = {
 					states = states,
@@ -415,37 +426,7 @@ for _, hash in ipairs(wires.to_register) do
 		local nodedef = update_table(base_nodedef, {
 			tiles = tiles,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
-			on_place = function(itemstack, placer, pointed_thing)
-				if pointed_thing.type ~= "node" then return end
-				local dir = vector.subtract(pointed_thing.under, pointed_thing.above)
-				local onto = minetest.get_node(pointed_thing.under)
-				if ATTACHED and (onto.name == "air" or string.find(onto.name, "wires:wire")) then return end
-				local node = minetest.get_node(pointed_thing.above)
-				local sides
-				if minetest.registered_nodes[node.name].buildable_to then
-					sides = {sides = {}, connects = {}}
-				elseif string.find(node.name, "wires:wire")~=nil then
-					sides = dehash_sides(minetest.registered_nodes[node.name].basename)
-					sides = rotate_sides(sides, node.param2)
-				else
-					return
-				end
-				local side = dir_to_side(dir)
-				if in_table(sides.sides, side) then return end
-				sides.sides[#sides.sides+1] = side
-				calculate_connects(sides, pointed_thing.above)
-				local hash = hash_sides(sides)
-				local nodename = "wires:wire_off_"..wires.wires[hash]
-				local param2 = wires.wire_facedirs[hash]
-				minetest.swap_node(pointed_thing.above, {name = nodename, param2 = param2})
-				update_connections(pointed_thing.above)
-				mesecon.on_placenode(pointed_thing.above, {name = nodename, param2 = param2})
-				mesecon:update_autoconnect(pointed_thing.above)
-				if finite_stacks then
-					itemstack:take_item()
-				end
-				return itemstack
-			end,
+			on_place = place_wire,
 			mesecons = {
 				conductor = {
 					state = "off",
@@ -531,8 +512,11 @@ minetest.register_tool("wires:cutter", {
 		local above = pointed_thing.above
 		local under = pointed_thing.under
 		local node = minetest.get_node(under)
-		if string.find(node.name, "wires:wire") == nil then return end
 		if not minetest.registered_nodes[node.name] then return end
+		if string.find(node.name, "wires:wire") == nil then
+			minetest.registered_nodes[node.name].on_punch(under, node, user)
+			return
+		end
 		local dir = user:get_look_dir()
 		local ppos = user:getpos()
 		ppos.y = ppos.y + 1.5 -- Camera
