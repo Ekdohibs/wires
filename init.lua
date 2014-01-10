@@ -159,12 +159,18 @@ local function get_rule(s, rule)
 end
 
 local function get_all_rules(node)
+	local t = {} 
 	if mesecon:is_conductor(node.name) then
-		return mesecon:conductor_get_rules(node)
-	elseif mesecon:is_receptor(node.name) then
-		return mesecon:receptor_get_rules(node)
-	elseif mesecon:is_effector(node.name) then
-		return mesecon:effector_get_rules(node)
+		t[#t+1] = mesecon:conductor_get_rules(node)
+	end
+	if mesecon:is_receptor(node.name) then
+		t[#t+1] = mesecon:receptor_get_rules(node)
+	end
+	if mesecon:is_effector(node.name) then
+		t[#t+1] = mesecon:effector_get_rules(node)
+	end
+	if t[1] ~= nil then
+		return mesecon:flattenrules(t)
 	end
 	return nil
 end
