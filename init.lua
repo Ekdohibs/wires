@@ -542,8 +542,6 @@ minetest.register_tool("wires:cutter", {
 			local t = (xint-ppos.x)/dir.x
 			local yint = ppos.y+dir.y*t - under.y
 			local zint = ppos.z+dir.z*t - under.z
-			print(yint)
-			print(zint)
 			if math.abs(yint)>math.abs(zint) then
 				if yint < 0 then
 					s2 = 4
@@ -562,8 +560,6 @@ minetest.register_tool("wires:cutter", {
 			local t = (yint-ppos.y)/dir.y
 			local xint = ppos.x+dir.x*t - under.x
 			local zint = ppos.z+dir.z*t - under.z
-			print(xint)
-			print(zint)
 			if math.abs(xint)>math.abs(zint) then
 				if xint < 0 then
 					s2 = 3
@@ -582,8 +578,6 @@ minetest.register_tool("wires:cutter", {
 			local t = (zint-ppos.z)/dir.z
 			local yint = ppos.y+dir.y*t - under.y
 			local xint = ppos.x+dir.x*t - under.x
-			print(yint)
-			print(xint)
 			if math.abs(yint)>math.abs(xint) then
 				if yint < 0 then
 					s2 = 4
