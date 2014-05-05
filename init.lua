@@ -347,6 +347,8 @@ for _, hash in ipairs(wires.to_register) do
 		drawtype = "nodebox",
 		walkable = false,
 		drop = "wires:wire_off_1 "..#sides.sides,
+		on_place = place_wire,
+		node_placement_prediction = "",
 		node_box = {
 			type = "fixed",
 			fixed = nodebox
@@ -367,7 +369,6 @@ for _, hash in ipairs(wires.to_register) do
 		local nodedef = update_table(base_nodedef, {
 			tiles = tiles,
 			groups = {dig_immediate = 3, mesecon = 2, not_in_creative_inventory = 1},
-			on_place = place_wire,
 			mesecons = {
 				conductor = {
 					states = states,
