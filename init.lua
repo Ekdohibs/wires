@@ -535,7 +535,7 @@ minetest.register_tool("wires:cutter", {
 		local dir = user:get_look_dir()
 		local ppos = user:getpos()
 		ppos.y = ppos.y + 1.5 -- Camera
-		ppos = vector.add(ppos, vector.subtract(above, under)) -- WTF? It works far better with that, even if I have absolutely no idea why
+		ppos = vector.add(ppos, vector.subtract(above, under))
 		local s = dir_to_side(vector.subtract(under, above))
 		local s2
 		if s%3 == 0 then -- X coordinate
