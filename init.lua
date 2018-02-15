@@ -6,6 +6,77 @@ local finite_stacks = (not minetest.setting_getbool("creative_mode")) or (minete
 
 dofile(minetest.get_modpath("wires").."/wires_tables.lua")
 
+local function old_mesecon_addPosRule(p, r)
+	return {x = p.x + r.x, y = p.y + r.y, z = p.z + r.z}
+end
+
+local function old_mesecon_update_autoconnect(pos, secondcall, replace_old)
+	local xppos = {x=pos.x+1, y=pos.y, z=pos.z}
+	local zppos = {x=pos.x, y=pos.y, z=pos.z+1}
+	local xmpos = {x=pos.x-1, y=pos.y, z=pos.z}
+	local zmpos = {x=pos.x, y=pos.y, z=pos.z-1}
+
+	local xpympos = {x=pos.x+1, y=pos.y-1, z=pos.z}
+	local zpympos = {x=pos.x, y=pos.y-1, z=pos.z+1}
+	local xmympos = {x=pos.x-1, y=pos.y-1, z=pos.z}
+	local zmympos = {x=pos.x, y=pos.y-1, z=pos.z-1}
+
+	local xpypos = {x=pos.x+1, y=pos.y+1, z=pos.z}
+	local zpypos = {x=pos.x, y=pos.y+1, z=pos.z+1}
+	local xmypos = {x=pos.x-1, y=pos.y+1, z=pos.z}
+	local zmypos = {x=pos.x, y=pos.y+1, z=pos.z-1}
+
+	if secondcall == nil then
+		old_mesecon_update_autoconnect(xppos, true)
+		old_mesecon_update_autoconnect(zppos, true)
+		old_mesecon_update_autoconnect(xmpos, true)
+		old_mesecon_update_autoconnect(zmpos, true)
+
+		old_mesecon_update_autoconnect(xpypos, true)
+		old_mesecon_update_autoconnect(zpypos, true)
+		old_mesecon_update_autoconnect(xmypos, true)
+		old_mesecon_update_autoconnect(zmypos, true)
+
+		old_mesecon_update_autoconnect(xpympos, true)
+		old_mesecon_update_autoconnect(zpympos, true)
+		old_mesecon_update_autoconnect(xmympos, true)
+		old_mesecon_update_autoconnect(zmympos, true)
+	end
+
+	nodename = minetest.env:get_node(pos).name
+	if string.find(nodename, "mesecons:wire_") == nil and not replace_old then return nil end
+
+	if mesecon:rules_link_anydir(pos, xppos) then xp = 1 else xp = 0 end
+	if mesecon:rules_link_anydir(pos, xmpos) then xm = 1 else xm = 0 end
+	if mesecon:rules_link_anydir(pos, zppos) then zp = 1 else zp = 0 end
+	if mesecon:rules_link_anydir(pos, zmpos) then zm = 1 else zm = 0 end
+
+	if mesecon:rules_link_anydir(pos, xpympos) then xp = 1 end
+	if mesecon:rules_link_anydir(pos, xmympos) then xm = 1 end
+	if mesecon:rules_link_anydir(pos, zpympos) then zp = 1 end
+	if mesecon:rules_link_anydir(pos, zmympos) then zm = 1 end
+
+	if mesecon:rules_link_anydir(pos, xpypos) then xpy = 1 else xpy = 0 end
+	if mesecon:rules_link_anydir(pos, zpypos) then zpy = 1 else zpy = 0 end
+	if mesecon:rules_link_anydir(pos, xmypos) then xmy = 1 else xmy = 0 end
+	if mesecon:rules_link_anydir(pos, zmypos) then zmy = 1 else zmy = 0 end
+
+	if xpy == 1 then xp = 1 end
+	if zpy == 1 then zp = 1 end
+	if xmy == 1 then xm = 1 end
+	if zmy == 1 then zm = 1 end
+
+	local nodeid = 	tostring(xp )..tostring(zp )..tostring(xm )..tostring(zm )..
+			tostring(xpy)..tostring(zpy)..tostring(xmy)..tostring(zmy)
+
+
+	if string.find(nodename, "_off") ~= nil then
+		minetest.env:set_node(pos, {name = "mesecons:wire_"..nodeid.."_off"})
+	else
+		minetest.env:set_node(pos, {name = "mesecons:wire_"..nodeid.."_on" })
+	end
+end
+
 local function hash_sides(sides)
 	local n = 0
 	for _, side in ipairs(sides.sides) do
@@ -159,7 +230,7 @@ local function get_rule(s, rule)
 end
 
 local function get_all_rules(node)
-	local t = {} 
+	local t = {}
 	if mesecon:is_conductor(node.name) then
 		t[#t+1] = mesecon:conductor_get_rules(node)
 	end
@@ -176,7 +247,7 @@ local function get_all_rules(node)
 end
 
 local function should_connect(pos, s, side, fromside, r)
-	local other = mesecon:addPosRule(pos, r)
+	local other = old_mesecon_addPosRule(pos, r)
 	local s_in_pos = is_side_in_pos(other, side, fromside)
 	if s_in_pos ~= nil then return s_in_pos end
 	local rule = get_rule(s, r)
@@ -184,7 +255,7 @@ local function should_connect(pos, s, side, fromside, r)
 	local otherrules = get_all_rules(othernode)
 	if not otherrules then return false end
 	for _, orule in ipairs(mesecon:flattenrules(otherrules)) do
-		if mesecon:cmpPos(mesecon:addPosRule(other, orule), pos) then
+		if mesecon:cmpPos(old_mesecon_addPosRule(other, orule), pos) then
 			if orule.sx == nil or
 				(orule.sx == rule.sx and orule.sy == rule.sy
 					and orule.sz == rule.sz) then
@@ -311,7 +382,7 @@ local function place_wire(itemstack, placer, pointed_thing)
 	local param2 = wires.wire_facedirs[hash]
 	swap_node(pointed_thing.above, node, {name = nodename, param2 = param2})
 	update_connections(pointed_thing.above)
-	mesecon:update_autoconnect(pointed_thing.above)
+	old_mesecon_update_autoconnect(pointed_thing.above)
 	if finite_stacks then
 		itemstack:take_item()
 	end
@@ -475,7 +546,7 @@ end
 
 minetest.register_on_placenode(function(pos, node)
 	update_connections(pos)
-	mesecon:update_autoconnect(pos)
+	old_mesecon_update_autoconnect(pos)
 end)
 
 minetest.register_on_dignode(function(pos, oldnode, digger)
@@ -516,7 +587,7 @@ minetest.register_on_dignode(function(pos, oldnode, digger)
 		minetest.handle_node_drops(pos, {ItemStack("wires:wire_off_1 "..nfound)}, digger)
 	end
 	update_connections(pos)
-	mesecon:update_autoconnect(pos)
+	old_mesecon_update_autoconnect(pos)
 end)
 
 minetest.register_tool("wires:cutter", {
